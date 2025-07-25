@@ -26,7 +26,7 @@ steps:
     id: 'push-image-latest'
     waitFor: ['build-image']
 
-  # Step 3: Deploy to Cloud Run with proper configuration
+  # Step 3: Deploy to Cloud Run with enhanced resource allocation
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
@@ -36,15 +36,16 @@ steps:
       - '--region=asia-south1'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--memory=2Gi'
+      - '--memory=4Gi'
       - '--cpu=2'
       - '--min-instances=0'
       - '--max-instances=10'
       - '--port=8080'
-      - '--timeout=900'
-      - '--execution-environment=gen2'
+      - '--timeout=600'
       - '--cpu-boost'
-      - '--set-env-vars=ENVIRONMENT=production,PYTHONUNBUFFERED=1,PORT=8080'
+      - '--startup-cpu-boost'
+      - '--max-startup-time=600s'
+      - '--set-env-vars=ENVIRONMENT=production,PYTHONUNBUFFERED=1'
       - '--set-secrets=BOT_TOKEN=telegram-bot-token:latest'
     id: 'deploy-cloud-run'
     waitFor: ['push-image-sha']
@@ -55,40 +56,24 @@ steps:
     args:
       - '-c'
       - |
-        # Wait for deployment to be ready
-        echo "⏳ Waiting for service to be ready..."
-        sleep 30
-        
         # Get the service URL
         SERVICE_URL=$(gcloud run services describe telegram-file-converter \
           --region=asia-south1 \
           --format="value(status.url)")
         
-        echo "🚀 Service deployed at: $SERVICE_URL"
-        
-        # Verify memory allocation
-        MEMORY=$(gcloud run services describe telegram-file-converter \
-          --region=asia-south1 \
-          --format="value(spec.template.spec.containers[0].resources.limits.memory)")
-        echo "✅ Memory allocation confirmed: $MEMORY"
+        echo "Service deployed at: $SERVICE_URL"
         
         # Set the Telegram webhook
         BOT_TOKEN=$(gcloud secrets versions access latest --secret="telegram-bot-token")
         
-        echo "📡 Setting Telegram webhook..."
-        WEBHOOK_RESPONSE=$(curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/setWebhook" \
+        curl -X POST "https://api.telegram.org/bot$BOT_TOKEN/setWebhook" \
           -d "url=$SERVICE_URL/webhook" \
-          -d "drop_pending_updates=true")
+          -d "drop_pending_updates=true"
         
-        echo "Webhook response: $WEBHOOK_RESPONSE"
+        echo "Webhook set to: $SERVICE_URL/webhook"
         
-        # Test the health endpoint
-        echo "🔍 Testing health endpoint..."
-        if curl -f "$SERVICE_URL/health"; then
-          echo "✅ Health check passed - bot is running correctly"
-        else
-          echo "⚠️ Health check failed - check the logs"
-        fi
+        # Test the deployment
+        curl -f "$SERVICE_URL/health" && echo "✅ Health check passed"
     id: 'set-webhook'
     waitFor: ['deploy-cloud-run']
 
@@ -101,8 +86,8 @@ options:
   env:
     - 'DOCKER_BUILDKIT=1'
 
-# Build timeout (20 minutes for file processing operations)
-timeout: '1200s'
+# Build timeout (15 minutes)
+timeout: '900s'
 
 # Substitutions for dynamic values
 substitutions:
@@ -114,4 +99,3 @@ tags:
   - 'telegram-bot'
   - 'cloud-run'
   - 'production'
-  - 'high-memory'
