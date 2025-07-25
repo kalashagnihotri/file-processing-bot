@@ -4,7 +4,7 @@ FROM python:3.10-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies for file processing
+# Install system dependencies for file processing (optimized)
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     libcairo2-dev \
@@ -16,7 +16,11 @@ RUN apt-get update && apt-get install -y \
     g++ \
     poppler-utils \
     tesseract-ocr \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
 
 # Copy requirements first for better Docker layer caching
 COPY requirements.txt .

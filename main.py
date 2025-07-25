@@ -515,6 +515,28 @@ if __name__ == "__main__":
     
     logger.info(f"🚀 Starting Telegram File Converter Bot on port {port}")
     logger.info(f"📊 Operations available: {operations_available}")
+    logger.info(f"🔑 Bot token configured: {'✅' if BOT_TOKEN else '❌'}")
+    logger.info(f"💾 Memory limit: Cloud Run managed")
     
-    # Start Flask application
-    app.run(host='0.0.0.0', port=port, debug=False)
+    try:
+        # Test bot connectivity before starting server
+        if BOT_TOKEN:
+            test_response = requests.get(f"{TELEGRAM_API_URL}/getMe", timeout=10)
+            if test_response.status_code == 200:
+                bot_info = test_response.json()
+                logger.info(f"✅ Bot connected: @{bot_info.get('result', {}).get('username', 'unknown')}")
+            else:
+                logger.warning(f"⚠️ Bot API test failed: {test_response.status_code}")
+        
+        # Start Flask application with production settings
+        app.run(
+            host='0.0.0.0', 
+            port=port, 
+            debug=False,
+            threaded=True,
+            use_reloader=False
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to start application: {e}")
+        raise
