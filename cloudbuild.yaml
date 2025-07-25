@@ -26,7 +26,19 @@ steps:
     id: 'push-image-latest'
     waitFor: ['build-image']
 
-  # Step 3: Deploy to Cloud Run with enhanced resource allocation
+  # Step 3: Force delete existing service and redeploy with correct memory
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'services'
+      - 'delete'
+      - 'telegram-file-converter'
+      - '--region=asia-south1'
+      - '--quiet'
+    id: 'delete-existing-service'
+    waitFor: ['push-image-sha']
+
+  # Step 4: Deploy fresh service with proper resource allocation
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
@@ -38,42 +50,52 @@ steps:
       - '--allow-unauthenticated'
       - '--memory=4Gi'
       - '--cpu=2'
+      - '--concurrency=80'
       - '--min-instances=0'
       - '--max-instances=10'
       - '--port=8080'
-      - '--timeout=600'
+      - '--timeout=900'
       - '--cpu-boost'
-      - '--startup-cpu-boost'
-      - '--max-startup-time=600s'
-      - '--set-env-vars=ENVIRONMENT=production,PYTHONUNBUFFERED=1'
+      - '--execution-environment=gen2'
+      - '--set-env-vars=ENVIRONMENT=production,PYTHONUNBUFFERED=1,PORT=8080'
       - '--set-secrets=BOT_TOKEN=telegram-bot-token:latest'
     id: 'deploy-cloud-run'
-    waitFor: ['push-image-sha']
+    waitFor: ['delete-existing-service']
 
-  # Step 4: Get service URL and set webhook
+  # Step 5: Verify deployment and set webhook
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
+        # Wait for deployment to be ready
+        echo "Waiting for service to be ready..."
+        sleep 30
+        
         # Get the service URL
-        SERVICE_URL=$(gcloud run services describe telegram-file-converter \
+        SERVICE_URL=$$(gcloud run services describe telegram-file-converter \
           --region=asia-south1 \
           --format="value(status.url)")
         
-        echo "Service deployed at: $SERVICE_URL"
+        echo "Service deployed at: $$SERVICE_URL"
+        
+        # Verify memory allocation
+        MEMORY=$$(gcloud run services describe telegram-file-converter \
+          --region=asia-south1 \
+          --format="value(spec.template.spec.containers[0].resources.limits.memory)")
+        echo "Memory allocation: $$MEMORY"
         
         # Set the Telegram webhook
-        BOT_TOKEN=$(gcloud secrets versions access latest --secret="telegram-bot-token")
+        BOT_TOKEN=$$(gcloud secrets versions access latest --secret="telegram-bot-token")
         
-        curl -X POST "https://api.telegram.org/bot$BOT_TOKEN/setWebhook" \
-          -d "url=$SERVICE_URL/webhook" \
+        curl -X POST "https://api.telegram.org/bot$$BOT_TOKEN/setWebhook" \
+          -d "url=$$SERVICE_URL/webhook" \
           -d "drop_pending_updates=true"
         
-        echo "Webhook set to: $SERVICE_URL/webhook"
+        echo "Webhook set to: $$SERVICE_URL/webhook"
         
         # Test the deployment
-        curl -f "$SERVICE_URL/health" && echo "✅ Health check passed"
+        curl -f "$$SERVICE_URL/health" && echo "✅ Health check passed"
     id: 'set-webhook'
     waitFor: ['deploy-cloud-run']
 
@@ -86,8 +108,8 @@ options:
   env:
     - 'DOCKER_BUILDKIT=1'
 
-# Build timeout (15 minutes)
-timeout: '900s'
+# Build timeout (20 minutes for file processing operations)
+timeout: '1200s'
 
 # Substitutions for dynamic values
 substitutions:
@@ -99,3 +121,4 @@ tags:
   - 'telegram-bot'
   - 'cloud-run'
   - 'production'
+  - 'high-memory'
