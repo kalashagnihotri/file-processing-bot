@@ -16,7 +16,7 @@ PyPDF2>=3.0.0
 pdf2image>=1.16.0
 reportlab>=4.0.0
 
-# Video processing (with FFmpeg support)
+# Video processing l(with FFmpeg support)
 moviepy>=1.0.3
 
 # Document conversion
