@@ -1,0 +1,102 @@
+# Docker ignore file for Google Cloud Run deployment
+# Exclude unnecessary files to reduce image size and build time
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+venv/
+ENV/
+env/
+.venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Temporary files
+temp/
+*.tmp
+*.temp
+
+# Log files
+*.log
+logs/
+
+# Environment files (secrets should be managed by Cloud Run)
+.env
+.env.local
+.env.*.local
+
+# Testing files
+test_*.py
+*_test.py
+tests/
+pytest_cache/
+
+# Documentation and development files
+README.md
+*.md
+docs/
+screenshots/
+
+# Development scripts
+test_*.py
+demo_*.py
+ui_ux_demo.py
+comprehensive_test.py
+
+# Deployment files (not needed in container)
+deploy.sh
+docker-compose.yml
+kubernetes.yaml
+
+# Large files that aren't needed in production
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.gif
+*.pdf
+*.docx
+*.xlsx
+
+# Backup files
+*.bak
+*.backup

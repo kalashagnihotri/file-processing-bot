@@ -1,8 +1,38 @@
-telebot
-pillow
-moviepy
-PyPDF2
-pdf2image
-opencv-python
-python-dotenv
-cairosvg
+# Telegram File Converter Bot - Cloud Run Dependencies
+
+# Web framework for webhook handling
+Flask>=2.3.0
+requests>=2.31.0
+
+# Core Telegram bot functionality
+pyTelegramBotAPI>=4.0.0
+python-dotenv>=1.0.0
+
+# Image processing
+Pillow>=10.0.0
+
+# PDF operations
+PyPDF2>=3.0.0
+pdf2image>=1.16.0
+reportlab>=4.0.0
+
+# Video processing (with FFmpeg support)
+moviepy>=1.0.3
+
+# Document conversion
+python-docx>=0.8.11
+pdf2docx>=0.5.0
+
+# OCR capabilities (optional)
+pytesseract>=0.3.10
+easyocr>=1.7.0
+
+# Advanced graphics (optional)
+cairosvg>=2.7.0
+svglib>=1.5.0
+
+# Google Cloud Storage (for large files)
+google-cloud-storage>=2.10.0
+
+# Additional utilities
+gunicorn>=21.0.0

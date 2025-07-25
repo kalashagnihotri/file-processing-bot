@@ -1,0 +1,16 @@
+# Configuration package
+from .settings import *
+
+__all__ = [
+    'BOT_TOKEN',
+    'MAX_FILE_SIZE_MB',
+    'SUPPORTED_IMAGE_EXTENSIONS',
+    'SUPPORTED_PDF_EXTENSIONS', 
+    'SUPPORTED_VIDEO_EXTENSIONS',
+    'IMAGE_QUALITY',
+    'VIDEO_QUALITY',
+    'TEMP_DIR',
+    'CLEANUP_INTERVAL_HOURS',
+    'ERROR_MESSAGES',
+    'SUCCESS_MESSAGES'
+]

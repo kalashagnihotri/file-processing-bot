@@ -1,0 +1,139 @@
+# Environment variables (contains sensitive tokens)
+.env
+.env.local
+.env.*.local
+
+# Python cache and build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+build/
+dist/
+.Python
+*.so
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg
+
+# Virtual environment (not needed in production)
+venv/
+env/
+ENV/
+.venv/
+
+# IDE and editor files (development only)
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.spyderproject
+.spyproject
+.ropeproject
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs (generated at runtime)
+*.log
+logs/
+
+# Temporary files (auto-generated, keep structure but ignore contents)
+temp/*
+!temp/README.md
+*.tmp
+*.temp
+
+# Test files and development artifacts (not needed in production)
+test_*
+*_test.py
+comprehensive_test.py
+ui_ux_demo.py
+coverage.xml
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# Development scripts (not needed for deployment)
+launch_enhanced.py
+bot_enhanced.py
+start_bot.py
+
+# Documentation files (not needed in container)
+README.md
+SETUP_GUIDE.md
+DEPLOYMENT_GUIDE.md
+GITHUB_DEPLOYMENT.md
+solve.md
+
+# Deployment files for other platforms (only keep Cloud Run files)
+deploy.sh
+deploy-fly.bat
+setup_webhook.sh
+.github/
+fly.toml
+
+# Local development files
+.env.example
+requirements-dev.txt
+dev-requirements.txt
+
+# Database files (if any)
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Git files
+.git/
+.gitattributes
+
+# Docker development files (keep only production Dockerfile)
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile.dev
+
+# npm/node files (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Jupyter notebooks (development only)
+*.ipynb
+.ipynb_checkpoints/
+
+# MyPy cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pyenv
+.python-version

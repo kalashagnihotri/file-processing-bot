@@ -1,0 +1,59 @@
+# Cloud Run deployment configuration
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: telegram-file-converter
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        # Allow up to 1000 concurrent requests
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/cpu-throttling: "false"
+        # Increase memory and CPU for file processing
+        run.googleapis.com/memory: "2Gi"
+        run.googleapis.com/cpu: "2"
+        # Increase timeout for file processing
+        run.googleapis.com/timeout: "3600s"
+    spec:
+      containerConcurrency: 1000
+      timeoutSeconds: 3600
+      containers:
+      - image: gcr.io/PROJECT_ID/telegram-file-converter:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: bot-token
+              key: token
+        - name: PORT
+          value: "8080"
+        - name: MAX_FILE_SIZE_MB
+          value: "50"
+        - name: TEMP_DIR
+          value: "/tmp"
+        resources:
+          limits:
+            cpu: "2"
+            memory: "2Gi"
+          requests:
+            cpu: "1"
+            memory: "1Gi"
+        # Health check
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 60
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
