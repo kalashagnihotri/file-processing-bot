@@ -32,6 +32,40 @@ TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 # Initialize Flask app
 app = Flask(__name__)
 
+# Import our modules
+from config import (
+    SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_PDF_EXTENSIONS, SUPPORTED_VIDEO_EXTENSIONS
+)
+from utils import temp_manager
+
+# Import operation functions with fallback handling
+operations_available = {
+    'images': False,
+    'pdf': False,
+    'videos': False
+}
+
+try:
+    from operations.images import *
+    operations_available['images'] = True
+    logger.info("✅ Image operations loaded")
+except ImportError as e:
+    logger.warning(f"⚠️ Could not import image operations: {e}")
+
+try:
+    from operations.pdf import *
+    operations_available['pdf'] = True
+    logger.info("✅ PDF operations loaded")
+except ImportError as e:
+    logger.warning(f"⚠️ Could not import PDF operations: {e}")
+
+try:
+    from operations.videos import *
+    operations_available['videos'] = True
+    logger.info("✅ Video operations loaded")
+except ImportError as e:
+    logger.warning(f"⚠️ Could not import video operations: {e}")
+
 # User sessions for file processing
 user_sessions = {}
 
@@ -495,26 +529,6 @@ def send_telegram_document(chat_id, file_path, caption=None):
         logger.error(f"Failed to send document: {e}")
         return None
 
-def get_file_type(file_name):
-    """Determine file type based on extension"""
-    if not file_name:
-        return "unsupported"
-    
-    ext = os.path.splitext(file_name)[1].lower()
-    
-    # Enhanced file type detection following #copilot-instructions
-    image_extensions = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
-    pdf_extensions = ['.pdf']
-    video_extensions = ['.mp4', '.mov', '.mkv', '.webm', '.ts']
-    
-    if ext in image_extensions:
-        return "image"
-    elif ext in pdf_extensions:
-        return "pdf"
-    elif ext in video_extensions:
-        return "video"
-    return "unsupported"
-
 def create_operation_buttons(file_type):
     """Create operation buttons based on file type"""
     buttons = []
@@ -821,98 +835,3 @@ def handle_callback_query(callback_query):
     except Exception as e:
         logger.error(f"Callback query handling error: {e}")
         send_telegram_message(callback_query['message']['chat']['id'], f"{EMOJIS['error']} Processing failed. Please try again.")
-
-@app.route('/health')
-def health_check():
-    """Health check endpoint for Cloud Run"""
-    try:
-        # Check bot token availability
-        if not BOT_TOKEN:
-            return jsonify({"status": "error", "message": "Bot token not configured"}), 500
-        
-        # Test Telegram API connectivity
-        response = requests.get(f"{TELEGRAM_API_URL}/getMe", timeout=5)
-        bot_info = response.json()
-        
-        if not bot_info.get('ok'):
-            return jsonify({"status": "error", "message": "Telegram API unreachable"}), 500
-        
-        return jsonify({
-            "status": "healthy",
-            "bot_username": bot_info['result'].get('username'),
-            "operations_available": operations_available,
-            "timestamp": datetime.now().isoformat()
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/set_webhook', methods=['POST'])
-def set_webhook():
-    """Endpoint to set Telegram webhook"""
-    try:
-        webhook_url = request.json.get('webhook_url')
-        if not webhook_url:
-            return jsonify({"status": "error", "message": "webhook_url required"}), 400
-        
-        response = requests.post(f"{TELEGRAM_API_URL}/setWebhook", data={
-            'url': webhook_url
-        })
-        
-        result = response.json()
-        return jsonify(result), 200 if result.get('ok') else 400
-        
-    except Exception as e:
-        logger.error(f"Set webhook failed: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/')
-def root():
-    """Root endpoint with service information"""
-    return jsonify({
-        "service": "Telegram File Converter Bot",
-        "status": "running",
-        "version": "3.0.0-webhook",
-        "deployment": "Google Cloud Run",
-        "features": [
-            "Webhook-based processing",
-            "Image format conversions", 
-            "PDF operations",
-            "Video/GIF processing",
-            "Professional UI/UX"
-        ],
-        "operations_available": operations_available
-    })
-
-if __name__ == "__main__":
-    # Cloud Run sets PORT environment variable
-    port = int(os.environ.get('PORT', 8080))
-    
-    logger.info(f"🚀 Starting Telegram File Converter Bot on port {port}")
-    logger.info(f"📊 Operations available: {operations_available}")
-    logger.info(f"🔑 Bot token configured: {'✅' if BOT_TOKEN else '❌'}")
-    logger.info(f"💾 Memory limit: Cloud Run managed")
-    
-    try:
-        # Test bot connectivity before starting server
-        if BOT_TOKEN:
-            test_response = requests.get(f"{TELEGRAM_API_URL}/getMe", timeout=10)
-            if test_response.status_code == 200:
-                bot_info = test_response.json()
-                logger.info(f"✅ Bot connected: @{bot_info.get('result', {}).get('username', 'unknown')}")
-            else:
-                logger.warning(f"⚠️ Bot API test failed: {test_response.status_code}")
-        
-        # Start Flask application with production settings
-        app.run(
-            host='0.0.0.0', 
-            port=port, 
-            debug=False,
-            threaded=True,
-            use_reloader=False
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to start application: {e}")
-        raise
