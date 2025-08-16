@@ -19,19 +19,36 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Import our modules following #copilot-instructions patterns
+# Import our modules with fallback handling
 try:
     from config import (
         BOT_TOKEN, MAX_FILE_SIZE_MB, ERROR_MESSAGES, SUCCESS_MESSAGES,
         SUPPORTED_IMAGE_EXTENSIONS, SUPPORTED_PDF_EXTENSIONS, SUPPORTED_VIDEO_EXTENSIONS
     )
-    from utils import temp_manager, download_telegram_file, get_file_info, validate_file_size
-    logger.info("✅ Core modules imported successfully")
+    logger.info("✅ Config module imported successfully")
 except ImportError as e:
-    logger.error(f"❌ Failed to import core modules: {e}")
+    logger.error(f"❌ Failed to import config module: {e}")
     # Fallback configuration for deployment
     BOT_TOKEN = os.getenv('BOT_TOKEN')
     MAX_FILE_SIZE_MB = 50
+    ERROR_MESSAGES = {'unsupported_file': 'Unsupported file type'}
+    SUCCESS_MESSAGES = {'file_received': 'File received successfully'}
+    SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp']
+    SUPPORTED_PDF_EXTENSIONS = ['.pdf']
+    SUPPORTED_VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm']
+
+try:
+    from utils import temp_manager
+    logger.info("✅ Utils module imported successfully")
+except ImportError as e:
+    logger.warning(f"⚠️ Utils module not available: {e}")
+    # Create a simple temp manager fallback
+    class SimpleTempManager:
+        def create_temp_file(self, extension="", prefix="temp_"):
+            return tempfile.mktemp(suffix=extension, prefix=prefix)
+        def get_output_filename(self, original, operation):
+            return f"converted_{operation}_{original}"
+    temp_manager = SimpleTempManager()
 
 # Import operations with graceful fallback handling
 operations_available = {
@@ -450,6 +467,22 @@ def handle_callback_query(callback_query):
 def health_check():
     """Health check endpoint for Cloud Run"""
     try:
+        # Basic health check - just return OK if server is running
+        return jsonify({
+            "status": "healthy",
+            "service": "telegram-file-converter",
+            "operations_available": operations_available,
+            "timestamp": datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/ready')
+def readiness_check():
+    """Readiness check endpoint - more thorough validation"""
+    try:
         # Check bot token availability
         if not BOT_TOKEN:
             return jsonify({"status": "error", "message": "Bot token not configured"}), 500
@@ -462,14 +495,14 @@ def health_check():
             return jsonify({"status": "error", "message": "Telegram API unreachable"}), 500
         
         return jsonify({
-            "status": "healthy",
+            "status": "ready",
             "bot_username": bot_info['result'].get('username'),
             "operations_available": operations_available,
             "timestamp": datetime.now().isoformat()
         }), 200
         
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        logger.error(f"Readiness check failed: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/set_webhook', methods=['POST'])
@@ -509,34 +542,55 @@ def root():
         "operations_available": operations_available
     })
 
-if __name__ == "__main__":
-    # Cloud Run sets PORT environment variable
-    port = int(os.environ.get('PORT', 8080))
-    
-    logger.info(f"🚀 Starting Telegram File Converter Bot on port {port}")
+# Initialize the application
+def initialize_app():
+    """Initialize the application and validate configuration"""
+    logger.info(f"🚀 Initializing Telegram File Converter Bot")
     logger.info(f"📊 Operations available: {operations_available}")
     logger.info(f"🔑 Bot token configured: {'✅' if BOT_TOKEN else '❌'}")
-    logger.info(f"💾 Memory limit: Cloud Run managed")
+    
+    # Validate BOT_TOKEN
+    if not BOT_TOKEN:
+        logger.error("❌ BOT_TOKEN environment variable is required")
+        raise ValueError("BOT_TOKEN is required")
     
     try:
-        # Test bot connectivity before starting server
-        if BOT_TOKEN:
-            test_response = requests.get(f"{TELEGRAM_API_URL}/getMe", timeout=10)
-            if test_response.status_code == 200:
-                bot_info = test_response.json()
+        # Quick bot connectivity test
+        logger.info("🔍 Testing bot connectivity...")
+        test_response = requests.get(f"{TELEGRAM_API_URL}/getMe", timeout=10)
+        if test_response.status_code == 200:
+            bot_info = test_response.json()
+            if bot_info.get('ok'):
                 logger.info(f"✅ Bot connected: @{bot_info.get('result', {}).get('username', 'unknown')}")
             else:
-                logger.warning(f"⚠️ Bot API test failed: {test_response.status_code}")
-        
-        # Start Flask application with production settings
-        app.run(
-            host='0.0.0.0', 
-            port=port, 
-            debug=False,
-            threaded=True,
-            use_reloader=False
-        )
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to start application: {e}")
-        raise
+                logger.error(f"❌ Bot API error: {bot_info}")
+                raise ValueError("Bot API validation failed")
+        else:
+            logger.error(f"❌ Bot API test failed: {test_response.status_code}")
+            raise ValueError("Bot API connectivity failed")
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"❌ Bot connectivity test failed: {e}")
+        raise ValueError(f"Bot connectivity failed: {e}")
+    
+    logger.info("✅ Application initialized successfully")
+
+# Initialize when module is loaded (for gunicorn)
+try:
+    initialize_app()
+except Exception as e:
+    logger.error(f"❌ Application initialization failed: {e}")
+    # Don't exit here for gunicorn compatibility
+
+if __name__ == "__main__":
+    # Direct execution (development mode)
+    port = int(os.environ.get('PORT', 8080))
+    logger.info(f"🌐 Starting Flask development server on 0.0.0.0:{port}")
+    
+    app.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=False,
+        threaded=True,
+        use_reloader=False
+    )

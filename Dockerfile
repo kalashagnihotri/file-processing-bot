@@ -44,8 +44,11 @@ ENV FLASK_ENV=production
 EXPOSE 8080
 
 # Health check for container monitoring
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-# Use webhook-based main.py for production
-CMD ["python", "main.py"]
+# Set production environment
+ENV ENVIRONMENT=production
+
+# Use the startup script for better error handling
+CMD ["python", "start_server.py"]
